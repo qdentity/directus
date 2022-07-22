@@ -125,9 +125,9 @@ import { getRootPath } from '@/utils/get-root-path';
 import { unexpectedError } from '@/utils/unexpected-error';
 import Cropper from 'cropperjs';
 import throttle from 'lodash/throttle';
-import { nanoid } from 'nanoid';
 import { addTokenToURL } from '@/api';
 import VCheckbox from '@/components/v-checkbox/v-checkbox.vue';
+import { nanoid } from 'nanoid';
 
 type Image = {
 	type: string;
@@ -156,7 +156,7 @@ export default defineComponent({
 			default: undefined,
 		},
 	},
-	emits: ['update:modelValue', 'refresh'],
+	emits: ['update:modelValue', 'refresh', 'replace-image'],
 	setup(props, { emit }) {
 		const { t, n } = useI18n();
 		const localActive = ref(false);
@@ -269,7 +269,7 @@ export default defineComponent({
 					});
 					const childImage = response.data.data;
 					const cropOriginalImageID = childImage.crop_original_image_id;
-					if (cropOriginalImageID) {
+					if (cropOriginalImageID && childImage.crop_coordinates) {
 						cropCoordinates.value = {
 							x: childImage.crop_coordinates.x,
 							y: childImage.crop_coordinates.y,
@@ -307,12 +307,20 @@ export default defineComponent({
 								formData.append('crop_original_image_id', originalImageID.value || props.id);
 								formData.append('crop_coordinates', `{"x": ${x}, "y": ${y}}`);
 								formData.append('file', blob, imageData.value?.filename_download);
-								await api.post('/files', formData);
+
+								const newCropResponse = await api.post('/files', formData);
+								emit('replace-image', newCropResponse.data.data);
 							} else {
 								formData.append('file', blob, imageData.value?.filename_download);
 								await api.patch(`/files/${props.id}`, formData);
+
+								// Remove the crop metadata in case new image does not get created
+								if (originalImageID.value) {
+									await api.patch(`files/${props.id}`, { crop_coordinates: null, crop_original_image_id: null });
+								}
+
+								emit('refresh');
 							}
-							emit('refresh');
 							internalActive.value = false;
 						} catch (err: any) {
 							unexpectedError(err);
@@ -325,9 +333,6 @@ export default defineComponent({
 				await nextTick();
 				initCropper();
 			}
-		}
-		function getStringValue(value: any): string {
-			return value.toString();
 		}
 		function useCropper() {
 			const cropperInstance = ref<Cropper | null>(null);
