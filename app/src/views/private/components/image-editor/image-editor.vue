@@ -22,7 +22,7 @@
 
 		<div v-show="imageData && !loading && !error" class="editor-container">
 			<div class="editor">
-				<v-image ref="imageElement" :src="imageURL" role="presentation" alt="" @load="onImageLoad" />
+				<img ref="imageElement" :src="imageURL" role="presentation" alt="" @load="onImageLoad" />
 			</div>
 
 			<div class="toolbar">
@@ -489,6 +489,7 @@ export default defineComponent({
 							width: cropCoordinates.value?.width,
 							height: cropCoordinates.value?.height,
 						});
+						dragMode.value = 'crop';
 					}, 100);
 				}
 			}
